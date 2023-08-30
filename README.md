@@ -29,7 +29,7 @@ Moreover, other modules are also used:
 
 ## CNN
 
-The `CNN` folder contains the modules that are used to evalute the CNN with the GPU.
+The `CNN` folder contains the modules that are used to evaluate the CNN with the GPU.
  - `bufread` reads a buffer from a file.
  - `bufimg` creates an image from a buffer.
  - `bufconv` converts the coefficients of a buffer to `float16`.
