@@ -1,0 +1,15 @@
+#version 460
+#extension GL_GOOGLE_include_directive : enable
+
+#define MAX_POOLING
+
+const uint GLOBAL_SIZE = 128; // Size of the full image
+
+const uint NB_INPUT_FEATURES = 57;
+const uint INPUT_FEATURE_STRIDE = 64;
+
+const uint NB_OUTPUT_FEATURES = 76;
+const uint OUTPUT_FEATURE_STRIDE = 80;
+const uint F_OUT_32 = 96;
+
+#include "gen-conv.c"

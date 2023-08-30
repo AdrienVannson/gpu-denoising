@@ -1,0 +1,26 @@
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 1, binding = 0) uniform sampler2D img_in;
+layout(set = 1, binding = 1) uniform writeonly image2D img_out;
+
+layout(std430, set = 1, binding = 2) readonly buffer Buff {
+	float16_t buff[];
+};
+
+float16_t f(float16_t x) {
+    if (x < 0.) return float16_t(0.);
+    if (x > 1.) return float16_t(1.);
+    return x;
+}
+
+void main()
+{
+    ivec2 ipos = ivec2(gl_GlobalInvocationID);
+
+    uint pos = 3 * (1024*ipos.x + (1023 - ipos.y));
+
+    imageStore(img_out, ipos, vec4(f(buff[pos]), f(buff[pos+1]), f(buff[pos+2]), 1.));
+}

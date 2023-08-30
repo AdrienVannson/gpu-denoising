@@ -14,7 +14,7 @@ The `Measurements modules` folder contains the modules that were used to realize
  - `contflow` measures the performance impact of thread divergence.
  - `memgloba` benchmarks the global memory.
  - `memshare` benchmarks the shared memory.
- - `permgen` generates a permutation (this is used to benchmark memory).
+ - `permgen` generates a permutation (this is used to benchmark the memory).
 
 ## Matrix products
 
@@ -26,3 +26,11 @@ Moreover, other modules are also used:
  - `matmove` reorganizes the coefficients of a matrix.
  - `matread` reads a matrix from a file.
  - `matrieq` checks if two matrices are equal.
+
+## CNN
+
+The `CNN` folder contains the modules that are used to evalute the CNN with the GPU.
+ - `bufread` reads a buffer from a file.
+ - `bufimg` creates an image from a buffer.
+ - `bufconv` converts the coefficients of a buffer to `float16`.
+ - `tfcnn` evaluates the CNN.

@@ -1,0 +1,2 @@
+buf_in:read:ssbo:f32
+buf_out:write:ssbo:f16

@@ -1,0 +1,3 @@
+weights:read:ssbo:f16
+input:read:ssbo:f16
+output:write:ssbo:f16
