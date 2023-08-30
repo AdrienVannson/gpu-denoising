@@ -1,0 +1,41 @@
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+    int n, m; // The matrix is n * m.
+};
+
+layout(set = 1, binding = 0) uniform sampler2D img_in;
+layout(set = 1, binding = 1) uniform writeonly image2D img_out;
+
+layout(std430, set = 1, binding = 2) readonly buffer MatA {
+    float16_t coefsA[];
+};
+
+layout(std430, set = 1, binding = 3) readonly buffer MatB {
+    float16_t coefsB[];
+};
+
+void main()
+{
+    ivec2 ipos = ivec2(gl_GlobalInvocationID);
+    if (any(greaterThanEqual(ipos, imageSize(img_out)))) return;
+
+    bool success = true;
+
+    for (int i = 0; i < n * m; i++) {
+        float16_t epsilon = float16_t(1.); // float16 are not precise
+        if (coefsA[i] - coefsB[i] <= -epsilon || coefsA[i] - coefsB[i] >= epsilon) {
+            success = false;
+        }
+    }
+
+    if (success) {
+        imageStore(img_out, ipos, vec4(0, 1, 0, 1)); // Green
+    } else {
+        imageStore(img_out, ipos, vec4(1, 0, 0, 1)); // Red
+    }
+}

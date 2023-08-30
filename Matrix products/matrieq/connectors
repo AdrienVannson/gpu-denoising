@@ -1,0 +1,4 @@
+input:read:*:*
+output:write:*:*
+matA:read:ssbo:f16
+matB:read:ssbo:f16

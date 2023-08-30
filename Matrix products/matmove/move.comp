@@ -1,0 +1,33 @@
+// There is a thread block for each 16*16 block of the output.
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+    int n, m; // The matrix is n * m.
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer MatIn {
+    float16_t mat_in[];
+};
+
+layout(std430, set = 1, binding = 1) buffer MatOut {
+    float16_t mat_out[];
+};
+
+void main()
+{
+    uint i = gl_WorkGroupID.x;
+    uint j = gl_WorkGroupID.y;
+
+    uint i_loc = gl_LocalInvocationID.x;
+    uint j_loc = gl_LocalInvocationID.y;
+
+    uint i_glob = gl_GlobalInvocationID.x;
+    uint j_glob = gl_GlobalInvocationID.y;
+
+    mat_out[16*16 * (i*(m / 16) + j) + 16*i_loc + j_loc] = mat_in[i_glob*m + j_glob];
+    //mat_out[i_glob*m + j_glob] = mat_in[i_glob*m + j_glob];
+}

@@ -1,0 +1,2 @@
+mat_in:read:ssbo:f16
+mat_out:write:ssbo:f16
