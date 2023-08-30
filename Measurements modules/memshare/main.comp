@@ -1,0 +1,26 @@
+#version 460
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 1, binding = 0) uniform sampler2D img_in;
+layout(set = 1, binding = 1) uniform writeonly image2D img_out;
+
+shared uint[9973] array;
+
+void main()
+{
+    uint random_value = 12;
+
+    uint sum = 0;
+
+    for (int i = 0; i < 10*1000*1000; i++) {
+        //sum += array[random_value];
+        sum += random_value;
+
+        array[9973 - random_value] = sum;
+        random_value = 123 * random_value % 9973; // 9973 is prime
+    }
+
+    if (sum > 10) {
+        imageStore(img_out, ivec2(0, 0), vec4(1, 0, 0, 1)); // Red
+    }
+}

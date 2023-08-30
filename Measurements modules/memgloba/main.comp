@@ -1,0 +1,25 @@
+// There is a thread block for each 16*16 block of the output.
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+#extension GL_ARB_gpu_shader_int64: require
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 1, binding = 0) readonly buffer MatIn {
+    uint mat_in[];
+};
+
+layout(std430, set = 1, binding = 1) buffer MatOut {
+    float mat_out[];
+};
+
+void main()
+{
+    uint pos = 0;
+
+    for (int i = 0; i < 1000*1000; i++) {
+        pos = mat_in[pos];
+    }
+
+    mat_out[0] = float(pos);
+}

@@ -1,0 +1,2 @@
+mat_in:read:ssbo:ui32
+mat_out:write:ssbo:f32
