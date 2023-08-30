@@ -1,0 +1,56 @@
+// There is a thread block for each 16*16 block of the output.
+#version 460
+#extension GL_KHR_memory_scope_semantics: enable
+#extension GL_NV_cooperative_matrix: enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+// If defined, the matrices must be modified to have all the coefficient of 16x16 blocks stored
+// contiguously.
+#define LINEAR_BLOCS
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+    int n, p, m; // A is n * p, B is p * m.
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer MatA {
+    float16_t coefsA[];
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer MatB {
+    float16_t coefsB[];
+};
+
+layout(std430, set = 1, binding = 2) buffer MatC {
+    float16_t coefsC[];
+};
+
+void main()
+{
+    uint i = gl_WorkGroupID.x;
+    uint j = gl_WorkGroupID.y;
+
+    fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> matA;
+    fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> matB;
+    fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> sum = fcoopmatNV<16, gl_ScopeSubgroup, 16, 16>(0.);
+
+    for (int k = 0; k < p / 16; k++) {
+#ifdef LINEAR_BLOCS
+        coopMatLoadNV(matA, coefsA, 16 * 16 * (i*p/16 + k), 16, false);
+        coopMatLoadNV(matB, coefsB, 16 * 16 * (k*m/16 + j), 16, false);
+#else
+        coopMatLoadNV(matA, coefsA, i*16*p + k*16, p, false);
+        coopMatLoadNV(matB, coefsB, k*16*m + j*16, m, false);
+#endif
+
+        sum = coopMatMulAddNV(matA, matB, sum);
+    }
+
+#ifdef LINEAR_BLOCS
+    coopMatStoreNV(sum, coefsC, 16 * 16 * (i*m/16 + j), 16, false);
+#else
+    coopMatStoreNV(sum, coefsC, i*16*m + j*16, m, false);
+#endif
+}

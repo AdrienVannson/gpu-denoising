@@ -1,0 +1,3 @@
+a:read:ssbo:f16
+b:read:ssbo:f16
+c:write:ssbo:f16

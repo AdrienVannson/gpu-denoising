@@ -1,0 +1,130 @@
+#version 460
+#extension GL_KHR_memory_scope_semantics: enable
+#extension GL_NV_cooperative_matrix: enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+#extension GL_EXT_control_flow_attributes: enable
+
+// 32 * 8 = 16 * 16
+layout(local_size_x = 32 * 8, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+	int n, p, m; // A is n * p, B is p * m.
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer MatA {
+	float16_t coefsA[];
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer MatB {
+	float16_t coefsB[];
+};
+
+layout(std430, set = 1, binding = 2) buffer MatC {
+	float16_t coefsC[];
+};
+
+const uint TILE_SIZE = 256;
+const uint COOPMAT_SIZE = 16;
+const uint COOPMAT_COEFS_COUNT = 16 * 16;
+
+const uint STEP_K = 3;
+
+shared float16_t matsA[2][16][STEP_K][COOPMAT_COEFS_COUNT];
+shared float16_t matsB[2][STEP_K][16][COOPMAT_COEFS_COUNT];
+
+fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> sums[8][4];
+
+void main()
+{
+    const uint local_id = gl_LocalInvocationID.x;
+
+    const uint x_glob = gl_WorkGroupID.x;
+	const uint y_glob = gl_WorkGroupID.y;
+
+    const uint x_loc = (local_id / 32) / 4; // 0 or 1
+    const uint y_loc = (local_id / 32) % 4;
+
+    [[unroll]] for (int i = 0; i < 8; i++) {
+        [[unroll]] for (int j = 0; j < 4; j++) {
+            sums[i][j] = fcoopmatNV<16, gl_ScopeSubgroup, 16, 16>(0.);
+        }
+    }
+
+    // Preload for k = 0
+    {
+        // Load A
+        [[unroll]] for (uint x = 0; x < 16; x++) {
+            [[unroll]] for (uint y = 0; y < STEP_K; y++) {
+                const uint x_mat = x_glob * TILE_SIZE / COOPMAT_SIZE + x;
+                const uint y_mat = y;
+
+                matsA[0][x][y][local_id] = coefsA[(x_mat * p/16 + y_mat) * COOPMAT_COEFS_COUNT + local_id];
+            }
+        }
+
+        // Load B
+        [[unroll]] for (uint x = 0; x < STEP_K; x++) {
+            [[unroll]] for (uint y = 0; y < 16; y++) {
+                const uint x_mat = x;
+                const uint y_mat = y_glob * TILE_SIZE / COOPMAT_SIZE + y;
+
+                matsB[0][x][y][local_id] = coefsB[(x_mat * m/16 + y_mat) * COOPMAT_COEFS_COUNT + local_id];
+            }
+        }
+    }
+
+    for (uint k = 0; k < p / (16 * STEP_K); k++) {
+        [[unroll]] for (int substep = 0; substep < 2; substep++) {
+
+            if (substep == (local_id < 32*4 ? 1 : 0)) { // Load the memory
+                // Load A
+                [[unroll]] for (uint x = 0; x < 16; x++) {
+                    [[unroll]] for (uint y = 0; y < STEP_K; y++) {
+                        const uint x_mat = x_glob * TILE_SIZE / COOPMAT_SIZE + x;
+                        const uint y_mat = STEP_K * (k+1) + y;
+
+                        matsA[(k+1)%2][x][y][local_id] = coefsA[(x_mat * p/16 + y_mat) * COOPMAT_COEFS_COUNT + local_id];
+                    }
+                }
+
+                // Load B
+                [[unroll]] for (uint x = 0; x < STEP_K; x++) {
+                    [[unroll]] for (uint y = 0; y < 16; y++) {
+                        const uint x_mat = STEP_K * (k+1) + x;
+                        const uint y_mat = y_glob * TILE_SIZE / COOPMAT_SIZE + y;
+
+                        matsB[(k+1)%2][x][y][local_id] = coefsB[(x_mat * m/16 + y_mat) * COOPMAT_COEFS_COUNT + local_id];
+                    }
+                }
+            } else { // Do the computation
+                [[unroll]] for (int k2 = 0; k2 < STEP_K; k2++) { // The "real" k is 2*k + k2
+                    fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> coop_mats_A[8];
+                    [[unroll]] for (int x = 0; x < 8; x++) {
+                        coopMatLoadNV(coop_mats_A[x], matsA[k%2][x_loc*8 + x][k2], 0, 16, false);
+                    }
+
+                    fcoopmatNV<16, gl_ScopeSubgroup, 16, 16> coop_mat_B;
+                    [[unroll]] for (int y = 0; y < 4; y++) {
+                        coopMatLoadNV(coop_mat_B, matsB[k%2][k2][y_loc*4 + y], 0, 16, false);
+
+                        [[unroll]] for (int x = 0; x < 8; x++) {
+                            sums[x][y] = coopMatMulAddNV(coop_mats_A[x], coop_mat_B, sums[x][y]);
+                        }
+                    }
+                }
+            }
+        }
+
+        barrier();
+    }
+
+    [[unroll]] for (int x = 0; x < 8; x++) {
+        [[unroll]] for (int y = 0; y < 4; y++) {
+            const uint x_mat = x_glob * TILE_SIZE / COOPMAT_SIZE + x_loc * 8 + x;
+            const uint y_mat = y_glob * TILE_SIZE / COOPMAT_SIZE + y_loc * 4 + y;;
+
+            coopMatStoreNV(sums[x][y], coefsC, (x_mat * m/16 + y_mat) * COOPMAT_COEFS_COUNT, 16, false);
+        }
+    }
+}

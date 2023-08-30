@@ -1,0 +1,66 @@
+// There is a thread block for each 16*16 block of the output.
+#version 460
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+// If defined, the matrices must be modified to have all the coefficient of 16x16 blocks stored
+// contiguously.
+#define LINEAR_BLOCS
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+    int n, p, m; // A is n * p, B is p * m.
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer MatA {
+    float16_t coefsA[];
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer MatB {
+    float16_t coefsB[];
+};
+
+layout(std430, set = 1, binding = 2) buffer MatC {
+    float16_t coefsC[];
+};
+
+shared float16_t[16*16] matA;
+shared float16_t[16*16] matB; // B is transposed
+
+void main()
+{
+    uint i = gl_WorkGroupID.x;
+    uint j = gl_WorkGroupID.y;
+
+    uint i_loc = gl_LocalInvocationID.x;
+    uint j_loc = gl_LocalInvocationID.y;
+
+    // Set the sum to 0
+    float16_t sum = float16_t(0.);
+
+    for (int k = 0; k < p / 16; k++) {
+        // Load A and B
+#ifdef LINEAR_BLOCS
+        matA[i_loc*16 + j_loc] = coefsA[16 * 16 * (i*p/16 + k) + i_loc*16+j_loc];
+        matB[i_loc + j_loc*16] = coefsB[16 * 16 * (k*m/16 + j) + i_loc*16+j_loc];
+#else
+        matA[i_loc*16 + j_loc] = coefsA[(i*16+i_loc) * p + k*16+j_loc];
+        matB[i_loc + j_loc*16] = coefsB[(k*16+i_loc) * m + j*16+j_loc];
+#endif
+
+        barrier();
+
+        for (int k_loc = 0; k_loc < 16; k_loc++) {
+            sum += matA[i_loc*16 + k_loc] * matB[k_loc + j_loc*16];
+        }
+
+        barrier();
+    }
+
+#ifdef LINEAR_BLOCS
+    coefsC[16 * 16 * (i*m/16 + j) + i_loc*16+j_loc] = sum;
+#else
+    coefsC[(i*16+i_loc)*m + j*16+j_loc] = sum;
+#endif
+}

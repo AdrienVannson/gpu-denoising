@@ -1,0 +1,37 @@
+// There is a thread block for each 16*16 block of the output.
+#version 460
+
+#extension GL_EXT_shader_explicit_arithmetic_types_float16: enable
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant, std140) uniform Params
+{
+    int n, p, m; // A is n * p, B is p * m.
+};
+
+layout(std430, set = 1, binding = 0) readonly buffer MatA {
+    float16_t coefsA[];
+};
+
+layout(std430, set = 1, binding = 1) readonly buffer MatB {
+    float16_t coefsB[];
+};
+
+layout(std430, set = 1, binding = 2) buffer MatC {
+    float16_t coefsC[];
+};
+
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    uint j = gl_GlobalInvocationID.y;
+
+    float16_t res = float16_t(0.);
+
+    for (int k = 0; k < p; k++) {
+        res += coefsA[i*p + k] * coefsB[k*m + j];
+    }
+
+    coefsC[i*m + j] = res;
+}
