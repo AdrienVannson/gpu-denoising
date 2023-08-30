@@ -6,6 +6,16 @@ The executed notebooks that were used to obtain the results of the machine learn
 
 The `ML/models` folder contains trained Tensorflow models that can be used directly.
 
+## Measurements
+
+The `Measurements modules` folder contains the modules that were used to realize different experiences on the performance of the GPU.
+ - `bankconf` measures the performance impact of bank conflicts.
+ - `comaperf` measures the peak performance of cooperative matrices.
+ - `contflow` measures the performance impact of thread divergence.
+ - `memgloba` benchmarks the global memory.
+ - `memshare` benchmarks the shared memory.
+ - `permgen` generates a permutation (this is used to benchmark memory).
+
 ## Matrix products
 
 The code allowing to perform matrix multiplications is available in the `Matrix products` folder. The most important part of the code lies in the `matmul` module: this module contains the shaders that actually perform the multiplication.
