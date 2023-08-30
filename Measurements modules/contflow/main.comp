@@ -1,0 +1,35 @@
+#version 460
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+layout(std140, set = 0, binding = 1) uniform params_t
+{
+    int nb_cond0;
+} params;
+
+layout(set = 1, binding = 0) uniform sampler2D img_in;
+layout(set = 1, binding = 1) uniform writeonly image2D img_out;
+
+shared uint res;
+
+void main()
+{
+    uint condition = gl_GlobalInvocationID.x < params.nb_cond0 ? 0 : 1;
+
+    uint value = 0;
+
+    for (int i = 0; i < 10*1000; i++) {
+        if (condition == 0) {
+            for (int j = 0; j < 1000; j++) {
+                value = (123 * value + 12) % 997;
+            }
+        } else {
+            for (int j = 0; j < 1000; j++) {
+               value = (654 * value) % 857 + 857;
+            }
+        }
+
+        condition = 1 - condition;
+    }
+
+    res = value;
+}
